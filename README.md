@@ -1,3 +1,4 @@
 ﻿# chatbot-tele
 
-masukin API sendiri
+masukin API sendiri (.env)
+bikin logs sendiri
