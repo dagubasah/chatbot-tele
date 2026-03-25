@@ -5,7 +5,7 @@ from typing import List, Dict
 
 SYSTEM_PROMPT = """
 Kamu adalah asisten AI Telegram yang membantu user dengan jelas, ringkas, cerdas, dan relevan.
-Gunakan konteks percakapan terakhir jika memang membantu menjawab.
+Gunakan konteks percakapan terakhir hanya jika memang membantu menjawab.
 Kalau konteks sebelumnya tidak relevan, fokus ke pertanyaan terbaru user.
 Jangan mengarang detail yang tidak ada.
 Jawab dengan bahasa yang natural dan mudah dipahami.
@@ -38,19 +38,45 @@ def format_recent_messages(recent_messages: List[Dict]) -> str:
     return "\n".join(lines)
 
 
+def get_latest_user_message(recent_messages: List[Dict]) -> str:
+    """
+    Ambil pesan user terakhir dari recent_messages.
+    """
+    for msg in reversed(recent_messages):
+        if msg.get("role") == "user":
+            content = msg.get("content", "").strip()
+            if content:
+                return content
+
+    return ""
+
+
 def build_chat_prompt(recent_messages: List[Dict]) -> str:
     """
-    Susun prompt final untuk LLM dari system prompt + recent context.
+    Susun prompt final untuk LLM dari system prompt + recent context + fokus ke pesan user terbaru.
     """
     conversation_context = format_recent_messages(recent_messages)
+    latest_user_message = get_latest_user_message(recent_messages)
+
+    if not latest_user_message:
+        latest_user_message = "Tidak ada pesan user terbaru yang terbaca."
 
     final_prompt = f"""
 {SYSTEM_PROMPT}
 
-Berikut adalah riwayat percakapan terbaru:
+Riwayat percakapan terbaru:
 {conversation_context}
 
-Balaslah pesan user terbaru dengan memperhatikan konteks di atas bila relevan.
+Pesan user terbaru yang harus kamu jawab:
+User: {latest_user_message}
+
+Instruksi:
+- Jawab pesan user terbaru di atas.
+- Gunakan riwayat percakapan hanya jika relevan.
+- Kalau pertanyaan terbaru tidak butuh konteks lama, fokus saja ke pertanyaan terbaru.
+- Jangan mengarang informasi yang tidak disebutkan user.
+
+Sekarang berikan jawaban terbaikmu.
 """.strip()
 
     return final_prompt

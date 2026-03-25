@@ -2,11 +2,12 @@
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any
 
 
 CHAT_HISTORY_PATH = "logs/chat_history.json"
+MAX_HISTORY_PER_CHAT = 100
 
 
 def ensure_chat_history_file() -> None:
@@ -31,10 +32,7 @@ def load_chat_history() -> List[Dict[str, Any]]:
         with open(CHAT_HISTORY_PATH, "r", encoding="utf-8") as file:
             data = json.load(file)
 
-        if isinstance(data, list):
-            return data
-
-        return []
+        return data if isinstance(data, list) else []
 
     except (json.JSONDecodeError, FileNotFoundError):
         return []
@@ -44,14 +42,18 @@ def save_chat_history(messages: List[Dict[str, Any]]) -> None:
     """
     Simpan seluruh riwayat chat ke file JSON.
     """
+    ensure_chat_history_file()
+
     with open(CHAT_HISTORY_PATH, "w", encoding="utf-8") as file:
         json.dump(messages, file, ensure_ascii=False, indent=2)
 
 
-def save_message(chat_id: int, role: str, content: str) -> None:
+def save_message(chat_id: int, role: str, content: str, message_type: str = "text") -> None:
     """
     Simpan 1 pesan ke chat history.
-    role: 'user' atau 'assistant'
+
+    role: user / assistant / system
+    message_type: text / document / image / summary / system
     """
     if not content or not content.strip():
         return
@@ -62,10 +64,27 @@ def save_message(chat_id: int, role: str, content: str) -> None:
         "chat_id": chat_id,
         "role": role,
         "content": content.strip(),
-        "timestamp": datetime.utcnow().isoformat()
+        "message_type": message_type,
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
     messages.append(new_message)
+
+    # Batasin history per chat biar file gak gendut brutal
+    per_chat_messages = [m for m in messages if m.get("chat_id") == chat_id]
+    if len(per_chat_messages) > MAX_HISTORY_PER_CHAT:
+        excess_count = len(per_chat_messages) - MAX_HISTORY_PER_CHAT
+        trimmed = []
+        removed = 0
+
+        for msg in messages:
+            if msg.get("chat_id") == chat_id and removed < excess_count:
+                removed += 1
+                continue
+            trimmed.append(msg)
+
+        messages = trimmed
+
     save_chat_history(messages)
 
 

@@ -14,8 +14,10 @@ def split_message(text: str, max_length: int = MAX_TELEGRAM_MESSAGE_LENGTH) -> l
     Memecah pesan panjang jadi beberapa bagian agar aman dikirim ke Telegram.
     Prioritas pecah di newline biar tetap enak dibaca.
     """
-    if not text:
-        return [""]
+    if not text or not text.strip():
+        return []
+
+    text = text.strip()
 
     if len(text) <= max_length:
         return [text]
@@ -27,13 +29,15 @@ def split_message(text: str, max_length: int = MAX_TELEGRAM_MESSAGE_LENGTH) -> l
         if len(current_chunk) + len(line) <= max_length:
             current_chunk += line
         else:
-            if current_chunk:
+            if current_chunk.strip():
                 chunks.append(current_chunk.strip())
                 current_chunk = ""
 
             # kalau 1 line sendiri kepanjangan, paksa pecah
             while len(line) > max_length:
-                chunks.append(line[:max_length].strip())
+                forced_chunk = line[:max_length].strip()
+                if forced_chunk:
+                    chunks.append(forced_chunk)
                 line = line[max_length:]
 
             current_chunk = line
@@ -53,6 +57,7 @@ def send_telegram_message(chat_id: int, text: str, parse_mode: Optional[str] = N
     payload = {
         "chat_id": chat_id,
         "text": text,
+        "disable_web_page_preview": True,
     }
 
     if parse_mode:
@@ -69,7 +74,12 @@ def send_long_message(chat_id: int, text: str, parse_mode: Optional[str] = None)
     """
     chunks = split_message(text)
 
+    if not chunks:
+        return
+
     for chunk in chunks:
+        if not chunk or not chunk.strip():
+            continue
         send_telegram_message(chat_id=chat_id, text=chunk, parse_mode=parse_mode)
 
 
@@ -77,14 +87,14 @@ def send_error_message(chat_id: int, error_text: str = "Terjadi error saat mempr
     """
     Helper untuk kirim pesan error yang konsisten.
     """
-    safe_text = f"⚠️ {error_text}"
-    send_telegram_message(chat_id=chat_id, text=safe_text)
+    safe_text = f"⚠️ {error_text}".strip()
+    send_long_message(chat_id=chat_id, text=safe_text)
 
 
 def send_ai_response(chat_id: int, ai_text: str) -> None:
     """
     Fungsi utama untuk kirim response AI ke user.
-    Bisa lu panggil langsung dari telegram_handler.py
+    Bisa dipanggil langsung dari telegram_handler.py
     """
     if not ai_text or not ai_text.strip():
         ai_text = "Aing lagi blank kalem bro 😵 coba ulangi lagi."
