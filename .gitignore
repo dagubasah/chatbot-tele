@@ -3,4 +3,4 @@ logs/
 __pycache__/
 *.pyc
 *.json
-temp_upload
+temp_uploads/
